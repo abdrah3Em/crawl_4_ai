@@ -1,0 +1,4 @@
+crawl4ai
+openai
+python-dotenv
+asyncio 
