@@ -6,8 +6,11 @@ This project demonstrates how to set up and use [Crawl4AI](https://docs.crawl4ai
 
 - **Free LLM Access**: Uses OpenRouter's free tier with Meta Llama 3.3 70B Instruct model
 - **AI-Powered Crawling**: Leverages LLM for intelligent content extraction and processing
-- **Multiple Strategies**: Simple crawling, LLM-based extraction, and intelligent chunking
-- **Markdown Output**: Clean, structured output perfect for RAG pipelines
+- **Multiple Strategies**: Simple crawling, LLM-based extraction, and comprehensive processing
+- **Multiple Output Formats**: Markdown, JSON, HTML, and Raw data
+- **Universal Configuration**: Single variable to control output format for all tasks
+- **Batch Processing**: Efficient scraping of multiple websites
+- **Error Handling**: Robust error handling and fallback mechanisms
 - **Async Support**: High-performance asynchronous crawling
 
 ## 📋 Prerequisites
@@ -65,6 +68,21 @@ This demonstrates:
 - Custom extraction prompts
 - Different output format combinations
 
+### 🎛️ Universal Output Format Configuration
+
+Easily configure output formats for all tasks by changing one variable in `usage_example.py`:
+
+```python
+# Options: "json", "markdown", "both", "all"
+OUTPUT_FORMAT = "json"  # Change this to control all tasks
+```
+
+**Available Options:**
+- `"json"`: Only JSON output
+- `"markdown"`: Only markdown output
+- `"both"`: Both JSON and markdown
+- `"all"`: All formats (JSON, markdown, HTML, raw)
+
 ### 🚀 All-in-One Comprehensive Scraper
 
 The main scraper provides:
@@ -83,8 +101,13 @@ Crawl4Ai/
 ├── config.env                    # Environment configuration
 ├── README.md                     # This file
 ├── comprehensive_website_scraper.py  # 🚀 All-in-one comprehensive scraper
-├── usage_example.py              # 📖 Usage examples
-└── *.md                          # Generated output files
+├── usage_example.py              # 📖 Usage examples with universal config
+├── test_basic.py                 # 🧪 Basic functionality tests
+├── INSTALLATION.md               # 📋 Installation and troubleshooting guide
+└── scraped_data/                 # 📁 Generated output files
+    ├── *.md                      # Markdown outputs
+    ├── *.json                    # JSON outputs
+    └── scraping_summary_*.json   # Batch processing summaries
 ```
 
 ## 🔧 Configuration
@@ -99,6 +122,18 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 DEFAULT_MODEL=meta-llama/llama-3.3-70b-instruct:free
 ```
 
+### Universal Output Format Configuration
+
+Control all output formats with a single variable in `usage_example.py`:
+
+```python
+# Global configuration - Change this URL to test different websites
+TARGET_URL = "https://example.com"
+
+# Universal output format configuration
+OUTPUT_FORMAT = "json"  # Options: "json", "markdown", "both", "all"
+```
+
 ### LLM Configuration
 
 The LLM is configured with these default settings:
@@ -110,14 +145,18 @@ llm_config = {
     "base_url": "https://openrouter.ai/api/v1",
     "model": "meta-llama/llama-3.3-70b-instruct:free",
     "temperature": 0.1,
-    "max_tokens": 4000
+    "max_tokens": 4000,
+    "headers": {
+        "HTTP-Referer": "https://github.com/crawl4ai-integration",
+        "X-Title": "Comprehensive Website Scraper"
+    }
 }
 ```
 
 ## 🧠 LLM Integration Features
 
 ### 1. Simple Crawling
-Basic web crawling with LLM-enhanced content processing:
+Basic web crawling without LLM (fastest):
 
 ```python
 result = await scraper.scrape_website(
@@ -140,13 +179,25 @@ result = await scraper.scrape_website(
 ```
 
 ### 3. Comprehensive Processing
-Intelligent content processing with chunking:
+Intelligent content processing with LLM extraction:
 
 ```python
 result = await scraper.scrape_website(
     url="https://example.com",
     strategy="comprehensive",
     output_formats=["markdown", "json", "html"]
+)
+```
+
+### 4. Batch Processing
+Scrape multiple websites efficiently:
+
+```python
+results = await scraper.scrape_multiple_websites(
+    urls=["https://site1.com", "https://site2.com"],
+    strategy="comprehensive",
+    output_formats=["markdown", "json"],
+    delay=2
 )
 ```
 
@@ -201,6 +252,26 @@ This setup uses the **Meta Llama 3.3 70B Instruct** model via OpenRouter, which:
 2. **Rate Limits**: Be aware of OpenRouter's rate limits on the free tier
 3. **Model Availability**: The free model may have usage restrictions
 4. **Content Rights**: Respect website terms of service and robots.txt
+5. **Playwright Installation**: Run `playwright install` after installing dependencies
+6. **Error Handling**: The scraper includes robust error handling and fallback mechanisms
+
+## 🧪 Testing
+
+### Basic Functionality Test
+Test the configuration and error handling without requiring Playwright:
+
+```bash
+python test_basic.py
+```
+
+### Installation Verification
+Follow the complete installation guide:
+
+```bash
+# See INSTALLATION.md for detailed steps
+playwright install
+python usage_example.py
+```
 
 ## 🤝 Contributing
 
@@ -215,6 +286,37 @@ Feel free to:
 - [Crawl4AI Documentation](https://docs.crawl4ai.com/)
 - [OpenRouter API Documentation](https://openrouter.ai/docs)
 - [Meta Llama 3.3 Model Card](https://openrouter.ai/meta-llama/llama-3.3-70b-instruct:free/api)
+- [Playwright Installation Guide](https://playwright.dev/python/docs/intro)
+
+## 🎯 Usage Examples
+
+### Single Task Execution
+```bash
+# Run specific tasks
+python usage_example.py simple
+python usage_example.py llm
+python usage_example.py comprehensive
+python usage_example.py batch
+python usage_example.py custom
+```
+
+### Output Format Control
+```python
+# In usage_example.py, change OUTPUT_FORMAT:
+OUTPUT_FORMAT = "json"      # JSON only
+OUTPUT_FORMAT = "markdown"  # Markdown only
+OUTPUT_FORMAT = "both"      # Both formats
+OUTPUT_FORMAT = "all"       # All formats
+```
+
+### Custom Configuration
+```python
+# Change target URL
+TARGET_URL = "https://your-website.com"
+
+# Change output directory
+OUTPUT_DIR = "your_output_folder"
+```
 
 ## 📄 License
 

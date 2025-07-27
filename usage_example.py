@@ -1,12 +1,12 @@
 """
-Main Usage Example for Comprehensive Website Scraper
+Main Usage task for Comprehensive Website Scraper
 
 This is the main usage file that demonstrates different scraping strategies
 and output formats using a single target URL. All functions share the same
 target URL for easy comparison and testing.
 
 Features:
-- Single target URL for all examples
+- Single target URL for all tasks
 - Modular functions for different use cases
 - Multiple output formats demonstration
 - Different scraping strategies
@@ -15,28 +15,54 @@ Features:
 
 import asyncio
 import json
-from comprehensive_website_scraper import ComprehensiveWebsiteScraper
+import sys
+from comprehensive_website_scraper import ComprehensiveWebsiteScraper  # Added explicit import
 
 # Global configuration - Change this URL to test different websites
-TARGET_URL = "https://crawl4ai.com"
+TARGET_URL = "https://rscolman.com.ng/"
 
 # Output directory for all results
-OUTPUT_DIR = "scraping_results"
+OUTPUT_DIR = "scraped_data"  # Aligned with scraper class
 
-async def simple_scraping_example():
-    """Example 1: Simple scraping without LLM (fastest)"""
-    print(f"\n1️⃣ Simple Scraping Example")
+# Universal output format configuration
+# Options: "json", "markdown", "both", "all"
+# - "json": Only JSON output
+# - "markdown": Only markdown output  
+# - "both": Both JSON and markdown
+# - "all": All formats (JSON, markdown, HTML, raw)
+OUTPUT_FORMAT = "json"
+
+def get_output_formats(output_format: str) -> list:
+    """Convert universal output format to list of formats"""
+    format_mapping = {
+        "json": ["json"],
+        "markdown": ["markdown"],
+        "both": ["markdown", "json"],
+        "all": ["markdown", "json", "html", "raw"]
+    }
+    
+    if output_format not in format_mapping:
+        print(f"⚠️ Unknown output format '{output_format}', using 'both'")
+        return format_mapping["both"]
+    
+    return format_mapping[output_format]
+
+async def simple_scraping_task():
+    """Task 1: Simple scraping without LLM (fastest)"""
+    print(f"\n1️⃣ Simple Scraping task")
     print("=" * 50)
     print(f"Target: {TARGET_URL}")
     print("Strategy: Simple (no LLM)")
-    print("Output: Markdown + JSON")
+    print(f"Output: {OUTPUT_FORMAT}")
     
-    scraper = ComprehensiveWebsiteScraper()
+    scraper = ComprehensiveWebsiteScraper(output_dir=OUTPUT_DIR)  # Pass output_dir
+    
+    output_formats = get_output_formats(OUTPUT_FORMAT)
     
     result = await scraper.scrape_website(
         url=TARGET_URL,
         strategy="simple",
-        output_formats=["markdown", "json"]
+        output_formats=output_formats
     )
     
     if result["success"]:
@@ -49,17 +75,18 @@ async def simple_scraping_example():
     
     return result
 
-async def llm_scraping_example():
-    """Example 2: LLM-based extraction with custom prompt"""
-    print(f"\n2️⃣ LLM Scraping Example")
+async def llm_scraping_task():
+    """Task 2: LLM-based extraction with custom prompt"""
+    print(f"\n2️⃣ LLM Scraping task")
     print("=" * 50)
     print(f"Target: {TARGET_URL}")
     print("Strategy: LLM-based extraction")
-    print("Output: JSON with structured data")
+    print(f"Output: {OUTPUT_FORMAT}")
     
-    scraper = ComprehensiveWebsiteScraper()
+    scraper = ComprehensiveWebsiteScraper(output_dir=OUTPUT_DIR)
     
-    # Custom prompt for specific information extraction
+    output_formats = get_output_formats(OUTPUT_FORMAT)
+    
     custom_prompt = """
     Extract the following information from this webpage and return as JSON:
     
@@ -78,13 +105,12 @@ async def llm_scraping_example():
     result = await scraper.scrape_website(
         url=TARGET_URL,
         strategy="llm",
-        output_formats=["json"],
+        output_formats=output_formats,
         custom_prompt=custom_prompt
     )
     
     if result["success"]:
         print(f"✅ Success! JSON saved to: {result['saved_files']['json']}")
-        # Show a preview of the extracted data
         if "json" in result["data"]:
             json_data = result["data"]["json"]
             if isinstance(json_data, dict):
@@ -99,20 +125,22 @@ async def llm_scraping_example():
     
     return result
 
-async def comprehensive_scraping_example():
-    """Example 3: Comprehensive scraping with all output formats"""
-    print(f"\n3️⃣ Comprehensive Scraping Example")
+async def comprehensive_scraping_task():
+    """Task 3: Comprehensive scraping with all output formats"""
+    print(f"\n3️⃣ Comprehensive Scraping task")
     print("=" * 50)
     print(f"Target: {TARGET_URL}")
     print("Strategy: Comprehensive (LLM + chunking)")
-    print("Output: Markdown + JSON + HTML + Raw")
+    print(f"Output: {OUTPUT_FORMAT}")
     
-    scraper = ComprehensiveWebsiteScraper()
+    scraper = ComprehensiveWebsiteScraper(output_dir=OUTPUT_DIR)
+    
+    output_formats = get_output_formats(OUTPUT_FORMAT)
     
     result = await scraper.scrape_website(
         url=TARGET_URL,
         strategy="comprehensive",
-        output_formats=["markdown", "json", "html", "raw"]
+        output_formats=output_formats
     )
     
     if result["success"]:
@@ -128,22 +156,20 @@ async def comprehensive_scraping_example():
     
     return result
 
-async def batch_scraping_example():
-    """Example 4: Batch scraping multiple related URLs"""
-    print(f"\n4️⃣ Batch Scraping Example")
+async def batch_scraping_task():
+    """Task 4: Batch scraping multiple related URLs"""
+    print(f"\n4️⃣ Batch Scraping task")
     print("=" * 50)
     print("Target: Multiple related URLs")
     print("Strategy: Comprehensive")
-    print("Output: Markdown + JSON for each site")
+    print(f"Output: {OUTPUT_FORMAT}")
     
-    scraper = ComprehensiveWebsiteScraper()
+    scraper = ComprehensiveWebsiteScraper(output_dir=OUTPUT_DIR)
     
-    # Related URLs to the main target
-    related_urls = [
-        TARGET_URL,
-        "https://docs.crawl4ai.com",
-        "https://github.com/unclecode/crawl4ai"
-    ]
+    output_formats = get_output_formats(OUTPUT_FORMAT)
+    
+    # Use only the target URL for simplicity
+    related_urls = [TARGET_URL]  # Focus on TARGET_URL
     
     print(f"📋 URLs to scrape:")
     for i, url in enumerate(related_urls, 1):
@@ -152,11 +178,10 @@ async def batch_scraping_example():
     results = await scraper.scrape_multiple_websites(
         urls=related_urls,
         strategy="comprehensive",
-        output_formats=["markdown", "json"],
+        output_formats=output_formats,
         delay=2
     )
     
-    # Summary
     successful = [r for r in results if r.get("success", False)]
     failed = [r for r in results if not r.get("success", False)]
     
@@ -168,21 +193,25 @@ async def batch_scraping_example():
     if failed:
         print(f"   ⚠️ Failed URLs:")
         for result in failed:
-            print(f"      - {result['url']}: {result['error']['message']}")
+            if isinstance(result, dict) and 'url' in result and 'error' in result:
+                print(f"      - {result['url']}: {result['error']['message']}")
+            else:
+                print(f"      - Unknown error in result")
     
     return results
 
-async def custom_extraction_example():
-    """Example 5: Custom extraction with specific data focus"""
-    print(f"\n5️⃣ Custom Extraction Example")
+async def custom_extraction_task():
+    """Task 5: Custom extraction with specific data focus"""
+    print(f"\n5️⃣ Custom Extraction task")
     print("=" * 50)
     print(f"Target: {TARGET_URL}")
     print("Strategy: LLM with custom prompt")
-    print("Output: JSON with specific data focus")
+    print(f"Output: {OUTPUT_FORMAT}")
     
-    scraper = ComprehensiveWebsiteScraper()
+    scraper = ComprehensiveWebsiteScraper(output_dir=OUTPUT_DIR)
     
-    # Custom prompt focused on technical information
+    output_formats = get_output_formats(OUTPUT_FORMAT)
+    
     technical_prompt = """
     Extract technical information from this webpage and return as JSON:
     
@@ -195,20 +224,19 @@ async def custom_extraction_example():
         "documentation": "links to documentation or guides"
     }
     
-    Focus on technical details, code examples, and developer information.
+    Focus on technical details, code tasks, and developer information.
     Return ONLY valid JSON.
     """
     
     result = await scraper.scrape_website(
         url=TARGET_URL,
         strategy="llm",
-        output_formats=["json"],
+        output_formats=output_formats,
         custom_prompt=technical_prompt
     )
     
     if result["success"]:
         print(f"✅ Success! Technical data saved to: {result['saved_files']['json']}")
-        # Show technical data preview
         if "json" in result["data"]:
             json_data = result["data"]["json"]
             if isinstance(json_data, dict):
@@ -217,7 +245,7 @@ async def custom_extraction_example():
                     if isinstance(value, list):
                         print(f"   {key}: {len(value)} items")
                         if value:
-                            print(f"      Examples: {', '.join(value[:3])}")
+                            print(f"      tasks: {', '.join(value[:3])}")
                     else:
                         print(f"   {key}: {str(value)[:100]}...")
     else:
@@ -225,62 +253,69 @@ async def custom_extraction_example():
     
     return result
 
-async def run_all_examples():
-    """Run all examples sequentially"""
-    print("🚀 Comprehensive Website Scraper - All Examples")
+async def run_all_tasks():
+    """Run all tasks sequentially"""
+    print("🚀 Comprehensive Website Scraper - All tasks")
     print("=" * 60)
     print(f"🎯 Target URL: {TARGET_URL}")
     print(f"📁 Output Directory: {OUTPUT_DIR}")
+    print(f"📄 Output Format: {OUTPUT_FORMAT}")
     print("=" * 60)
     
     results = {}
     
-    # Run all examples
-    results["simple"] = await simple_scraping_example()
-    results["llm"] = await llm_scraping_example()
-    results["comprehensive"] = await comprehensive_scraping_example()
-    results["batch"] = await batch_scraping_example()
-    results["custom"] = await custom_extraction_example()
+    try:
+        results["simple"] = await simple_scraping_task()
+        results["llm"] = await llm_scraping_task()
+        results["comprehensive"] = await comprehensive_scraping_task()
+        results["batch"] = await batch_scraping_task()
+        results["custom"] = await custom_extraction_task()
+        
+        print(f"\n🎉 All tasks completed!")
+        print("=" * 60)
+        
+        successful_tasks = sum(1 for r in results.values() if isinstance(r, dict) and r.get("success", False))
+        total_tasks = len(results)
+        
+        print(f"📊 Summary:")
+        print(f"   ✅ Successful tasks: {successful_tasks}/{total_tasks}")
+        print(f"   📁 All results saved to: {OUTPUT_DIR}/")
+        print(f"   🎯 Target URL tested: {TARGET_URL}")
     
-    # Final summary
-    print(f"\n🎉 All Examples Completed!")
-    print("=" * 60)
-    
-    successful_examples = sum(1 for r in results.values() if isinstance(r, dict) and r.get("success", False))
-    total_examples = len(results)
-    
-    print(f"📊 Summary:")
-    print(f"   ✅ Successful examples: {successful_examples}/{total_examples}")
-    print(f"   📁 All results saved to: {OUTPUT_DIR}/")
-    print(f"   🎯 Target URL tested: {TARGET_URL}")
+    except Exception as e:
+        print(f"❌ Error running tasks: {e}")
     
     return results
 
-async def run_single_example(example_name: str):
-    """Run a single example by name"""
-    examples = {
-        "simple": simple_scraping_example,
-        "llm": llm_scraping_example,
-        "comprehensive": comprehensive_scraping_example,
-        "batch": batch_scraping_example,
-        "custom": custom_extraction_example
+async def run_single_task(task_name: str):
+    """Run a single task by name"""
+    tasks = {
+        "simple": simple_scraping_task,
+        "llm": llm_scraping_task,
+        "comprehensive": comprehensive_scraping_task,
+        "batch": batch_scraping_task,
+        "custom": custom_extraction_task
     }
     
-    if example_name not in examples:
-        print(f"❌ Unknown example: {example_name}")
-        print(f"Available examples: {', '.join(examples.keys())}")
+    if task_name not in tasks:
+        print(f"❌ Unknown task: {task_name}")
+        print(f"Available tasks: {', '.join(tasks.keys())}")
         return None
     
-    print(f"🎯 Running example: {example_name}")
-    return await examples[example_name]()
+    print(f"🎯 Running task: {task_name}")
+    try:
+        return await tasks[task_name]()
+    except Exception as e:
+        print(f"❌ Error running task {task_name}: {e}")
+        return None
 
 if __name__ == "__main__":
-    import sys
-    
-    # Check if a specific example was requested
-    if len(sys.argv) > 1:
-        example_name = sys.argv[1].lower()
-        asyncio.run(run_single_example(example_name))
-    else:
-        # Run all examples
-        asyncio.run(run_all_examples()) 
+    try:
+        if len(sys.argv) > 1:
+            task_name = sys.argv[1].lower()
+            asyncio.run(run_single_task(task_name))
+        else:
+            asyncio.run(run_all_tasks())
+    except Exception as e:
+        print(f"❌ Fatal error: {e}")
+        sys.exit(1)

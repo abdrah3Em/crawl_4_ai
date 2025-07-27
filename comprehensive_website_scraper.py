@@ -16,31 +16,31 @@ Features:
 import asyncio
 import json
 import os
-import sys
+import re
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 from urllib.parse import urlparse
 from pathlib import Path
 from dotenv import load_dotenv
 from crawl4ai import AsyncWebCrawler
 from crawl4ai.extraction_strategy import LLMExtractionStrategy
-from crawl4ai.chunking_strategy import LLMChunkingStrategy
+from crawl4ai.chunking_strategy import ChunkingStrategy
 
 # Load environment variables
 load_dotenv('config.env')
 
 class ComprehensiveWebsiteScraper:
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, output_dir: str = "scraped_data"):
         """Initialize the comprehensive website scraper"""
         self.api_key = api_key or os.getenv('OPENROUTER_API_KEY')
-        self.base_url = os.getenv('OPENROUTER_BASE_URL')
-        self.model = os.getenv('DEFAULT_MODEL')
+        self.base_url = os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
+        self.model = os.getenv('DEFAULT_MODEL', 'meta-llama/llama-3.3-70b-instruct:free')
         
         if not self.api_key:
             raise ValueError("Please set OPENROUTER_API_KEY in config.env file or pass it to the constructor")
         
         self.llm_config = self._get_llm_config()
-        self.output_dir = "scraped_data"
+        self.output_dir = output_dir
         
         # Create output directory
         Path(self.output_dir).mkdir(exist_ok=True)
@@ -54,6 +54,10 @@ class ComprehensiveWebsiteScraper:
             "model": self.model,
             "temperature": 0.1,
             "max_tokens": 4000,
+            "headers": {
+                "HTTP-Referer": "https://github.com/crawl4ai-integration",
+                "X-Title": "Comprehensive Website Scraper"
+            }
         }
     
     def _get_extraction_prompt(self, url: str) -> str:
@@ -132,41 +136,41 @@ class ComprehensiveWebsiteScraper:
         Args:
             url: The website URL to scrape
             strategy: Scraping strategy ("simple", "llm", "comprehensive")
-            output_formats: List of output formats ("markdown", "json", "html")
+            output_formats: List of output formats ("markdown", "json", "html", "raw")
             custom_prompt: Custom extraction prompt for LLM strategy
             
         Returns:
             Dictionary containing the scraped data and results
         """
+        valid_formats = ["markdown", "json", "html", "raw"]
+        output_formats = [fmt for fmt in output_formats if fmt in valid_formats]
+        if not output_formats:
+            print(f"⚠️ No valid output formats provided, defaulting to {valid_formats}")
+            output_formats = valid_formats
+        
         print(f"🕷️ Starting {strategy} scrape of: {url}")
         
         try:
-            # Configure extraction strategy based on the chosen strategy
-            if strategy == "simple":
-                extraction_strategy = None
-                chunking_strategy = None
-            elif strategy == "llm":
+            if strategy not in ["simple", "llm", "comprehensive"]:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            extraction_strategy = None
+            chunking_strategy = None
+            if strategy == "llm":
                 extraction_strategy = LLMExtractionStrategy(
                     llm_config=self.llm_config,
                     extraction_prompt=custom_prompt or self._get_extraction_prompt(url)
                 )
-                chunking_strategy = None
             elif strategy == "comprehensive":
                 extraction_strategy = LLMExtractionStrategy(
                     llm_config=self.llm_config,
                     extraction_prompt=custom_prompt or self._get_extraction_prompt(url)
                 )
-                chunking_strategy = LLMChunkingStrategy(
-                    llm_config=self.llm_config,
-                    chunk_size=2000,
-                    chunk_overlap=200
-                )
-            else:
-                raise ValueError(f"Unknown strategy: {strategy}")
+                # For now, skip chunking strategy as it's causing issues
+                chunking_strategy = None
             
             async with AsyncWebCrawler() as crawler:
-                print(f"📡 Crawling website using {strategy} strategy...")
-                
+                print(f"📡 Crawling website using {strategy} strategy...")  # Fixed f-string
                 result = await crawler.arun(
                     url=url,
                     extraction_strategy=extraction_strategy,
@@ -181,10 +185,7 @@ class ComprehensiveWebsiteScraper:
                 print(f"📄 Raw content length: {len(result.markdown)} characters")
                 print(f"🔗 Links found: {len(result.links)}")
                 
-                # Process results based on output formats
                 processed_data = self._process_results(result, url, strategy, output_formats)
-                
-                # Save outputs
                 saved_files = self._save_outputs(processed_data, url, output_formats)
                 
                 return {
@@ -220,33 +221,26 @@ class ComprehensiveWebsiteScraper:
     
     def _process_results(self, result, url: str, strategy: str, output_formats: List[str]) -> Dict[str, Any]:
         """Process the crawler results based on output formats"""
-        processed_data = {}
-        
-        # Always include basic info
-        processed_data["basic_info"] = {
-            "url": url,
-            "strategy": strategy,
-            "content_length": len(result.markdown),
-            "links_count": len(result.links),
-            "scraped_at": datetime.now().isoformat()
+        processed_data = {
+            "basic_info": {
+                "url": url,
+                "strategy": strategy,
+                "content_length": len(result.markdown),
+                "links_count": len(result.links),
+                "scraped_at": datetime.now().isoformat()
+            }
         }
         
-        # Process markdown output
         if "markdown" in output_formats:
             processed_data["markdown"] = result.markdown
         
-        # Process HTML output
         if "html" in output_formats and hasattr(result, 'html'):
             processed_data["html"] = result.html
         
-        # Process JSON output
         if "json" in output_formats:
-            if strategy == "simple":
-                processed_data["json"] = self._create_simple_json_structure(result, url)
-            else:
-                processed_data["json"] = self._parse_extracted_content(result, url)
+            processed_data["json"] = (self._create_simple_json_structure(result, url) if strategy == "simple"
+                                    else self._parse_extracted_content(result, url))
         
-        # Process raw data
         if "raw" in output_formats:
             processed_data["raw"] = {
                 "markdown": result.markdown,
@@ -262,17 +256,13 @@ class ComprehensiveWebsiteScraper:
             if hasattr(result, 'extracted_content') and result.extracted_content:
                 content_str = str(result.extracted_content).strip()
                 
-                # Clean the extracted content
                 if content_str.startswith('```json'):
-                    content_str = content_str[7:]
-                if content_str.endswith('```'):
-                    content_str = content_str[:-3]
+                    content_str = content_str[7:-3] if content_str.endswith('```') else content_str[7:]
                 
                 parsed_data = json.loads(content_str)
                 parsed_data["raw_markdown"] = result.markdown[:1000] + "..." if len(result.markdown) > 1000 else result.markdown
                 return parsed_data
-            else:
-                return self._create_fallback_structure(result, url)
+            return self._create_fallback_structure(result, url)
                 
         except json.JSONDecodeError as e:
             print(f"⚠️ Could not parse extracted content as JSON: {e}")
@@ -348,14 +338,17 @@ class ComprehensiveWebsiteScraper:
             "extraction_method": "fallback"
         }
     
+    def _sanitize_filename(self, filename: str) -> str:
+        """Sanitize filename to prevent path injection or invalid characters"""
+        return re.sub(r'[^\w\-_\.]', '_', filename)
+    
     def _save_outputs(self, processed_data: Dict[str, Any], url: str, output_formats: List[str]) -> Dict[str, str]:
         """Save the processed data to files"""
         saved_files = {}
-        domain = urlparse(url).netloc.replace('.', '_')
+        domain = self._sanitize_filename(urlparse(url).netloc)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
         try:
-            # Save markdown
             if "markdown" in output_formats and "markdown" in processed_data:
                 markdown_file = f"{self.output_dir}/{domain}_{timestamp}.md"
                 with open(markdown_file, 'w', encoding='utf-8') as f:
@@ -363,7 +356,6 @@ class ComprehensiveWebsiteScraper:
                 saved_files["markdown"] = markdown_file
                 print(f"💾 Markdown saved to: {markdown_file}")
             
-            # Save JSON
             if "json" in output_formats and "json" in processed_data:
                 json_file = f"{self.output_dir}/{domain}_{timestamp}.json"
                 with open(json_file, 'w', encoding='utf-8') as f:
@@ -371,7 +363,6 @@ class ComprehensiveWebsiteScraper:
                 saved_files["json"] = json_file
                 print(f"💾 JSON saved to: {json_file}")
             
-            # Save HTML
             if "html" in output_formats and "html" in processed_data:
                 html_file = f"{self.output_dir}/{domain}_{timestamp}.html"
                 with open(html_file, 'w', encoding='utf-8') as f:
@@ -379,7 +370,6 @@ class ComprehensiveWebsiteScraper:
                 saved_files["html"] = html_file
                 print(f"💾 HTML saved to: {html_file}")
             
-            # Save raw data
             if "raw" in output_formats and "raw" in processed_data:
                 raw_file = f"{self.output_dir}/{domain}_{timestamp}_raw.json"
                 with open(raw_file, 'w', encoding='utf-8') as f:
@@ -423,12 +413,10 @@ class ComprehensiveWebsiteScraper:
             result = await self.scrape_website(url, strategy, output_formats)
             results.append(result)
             
-            # Add delay between requests
             if i < len(urls):
                 print(f"⏳ Waiting {delay} seconds before next request...")
                 await asyncio.sleep(delay)
         
-        # Generate summary report
         summary = self._generate_summary_report(results)
         summary_file = f"{self.output_dir}/scraping_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         
@@ -453,68 +441,8 @@ class ComprehensiveWebsiteScraper:
                 "failed": len(failed),
                 "success_rate": f"{(len(successful) / len(results) * 100):.1f}%" if results else "0%"
             },
-            "successful_urls": [r["url"] for r in successful],
-            "failed_urls": [r["url"] for r in failed],
-            "errors": [r.get("error", {}).get("message", "Unknown error") for r in failed],
+            "successful_urls": [r.get("url", "unknown") for r in successful if isinstance(r, dict)],
+            "failed_urls": [r.get("url", "unknown") for r in failed if isinstance(r, dict)],
+            "errors": [r.get("error", {}).get("message", "Unknown error") for r in failed if isinstance(r, dict)],
             "generated_at": datetime.now().isoformat()
         }
-
-async def main():
-    """Main function demonstrating the comprehensive website scraper"""
-    
-    # Example usage
-    urls_to_scrape = [
-        "https://crawl4ai.com",
-        "https://docs.crawl4ai.com"
-    ]
-    
-    try:
-        # Initialize scraper
-        scraper = ComprehensiveWebsiteScraper()
-        
-        print("🌐 Comprehensive Website Scraper")
-        print("=" * 50)
-        
-        # Example 1: Single website with comprehensive strategy
-        print("\n1️⃣ Single Website - Comprehensive Strategy:")
-        result = await scraper.scrape_website(
-            url=urls_to_scrape[0],
-            strategy="comprehensive",
-            output_formats=["markdown", "json"]
-        )
-        
-        if result["success"]:
-            print(f"✅ Successfully scraped: {result['url']}")
-            print(f"📁 Files saved: {list(result['saved_files'].keys())}")
-        
-        # Example 2: Single website with simple strategy
-        print("\n2️⃣ Single Website - Simple Strategy:")
-        result = await scraper.scrape_website(
-            url=urls_to_scrape[1],
-            strategy="simple",
-            output_formats=["markdown", "json"]
-        )
-        
-        if result["success"]:
-            print(f"✅ Successfully scraped: {result['url']}")
-            print(f"📁 Files saved: {list(result['saved_files'].keys())}")
-        
-        # Example 3: Batch scraping
-        print("\n3️⃣ Batch Scraping:")
-        results = await scraper.scrape_multiple_websites(
-            urls=urls_to_scrape,
-            strategy="comprehensive",
-            output_formats=["markdown", "json", "html"],
-            delay=2
-        )
-        
-        print(f"\n✅ All scraping completed successfully!")
-        print(f"📁 Check the '{scraper.output_dir}' folder for all results.")
-        
-    except Exception as e:
-        print(f"❌ Error in main execution: {e}")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    # Run the async main function
-    asyncio.run(main()) 
